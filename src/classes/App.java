@@ -87,7 +87,6 @@ public class App {
                     break;
                 case "5":
                     System.out.println("Выдаем книгу читателю");
-                    
                     History history = historyProvider.createHistory(listBooks, listReaders);
                     listHistories.add(history);
                     saveToBase.saveHistories(listHistories);

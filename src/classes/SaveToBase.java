@@ -34,16 +34,21 @@ public class SaveToBase {
     
     public void saveBooks(List<Book> listBooks){
         List<Book> listBooksSaved = loadBooks();
-        tx.begin();
-            for(int i=0; i<listBooks.size();i++){
-                if(listBooksSaved.contains(listBooks.get(i))
-                        && !listBooksSaved.get(i).equals(listBooks.get(i))){
-                    em.merge(listBooks.get(i));
-                }else{
-                    em.persist(listBooks.get(i));
-                }
+        
+        for(int i=0; i<listBooks.size();i++){
+            if(listBooksSaved.contains(listBooks.get(i))
+                    && !listBooksSaved.get(i).equals(listBooks.get(i))){
+                tx.begin();
+                em.merge(listBooks.get(i));
+                tx.commit();
+            }else if(listBooks.get(i).getId() == null){
+                tx.begin();
+                em.persist(listBooks.get(i));
+                tx.commit();
+            }else{
+                continue;
             }
-        tx.commit();
+        }
     }
     public List<Book> loadBooks(){
         return em.createQuery("SELECT b FROM Book b")
@@ -51,46 +56,89 @@ public class SaveToBase {
     }
     public void saveReaders(List<Reader> listReaders){
         List<Reader> listReadersSaved = loadReaders();
-        tx.begin();
-            for(int i=0; i<listReaders.size();i++){
-                if(!listReadersSaved.contains(listReaders.get(i))
-//                        && !listReadersSaved.get(i).equals(listReaders.get(i))){
-                        ){
-                    em.merge(listReaders.get(i));
-                }else{
-                    em.persist(listReadersSaved.get(i));
-                }
-
-//em.merge(listReadersSaved.get(listReadersSaved.size() - 1));
+        
+        for(int i=0; i<listReaders.size();i++){
+            if(listReadersSaved.contains(listReaders.get(i))
+                    && !listReadersSaved.get(i).equals(listReaders.get(i))){
+                tx.begin();
+                em.merge(listReaders.get(i));
+                tx.commit();
+            }else if(listReaders.get(i).getId()==null){
+                tx.begin();
+                em.persist(listReaders.get(i));
+                tx.commit();
+            }else{
+                continue;
             }
-        tx.commit();
+        }
+        
     }
     public List<Reader> loadReaders(){
         return em.createQuery("SELECT r FROM Reader r")
                 .getResultList();
     }
     void saveHistories(List<History> listHistories) {
-        List<History> listHistoriesSaved = null;
-        
-            for(int i=0; i<listHistories.size();i++){
-                listHistoriesSaved = loadHistories();
-                tx.begin();
-                    if(listHistoriesSaved.contains(listHistories.get(i))){
-//                        if(!listHistoriesSaved.get(i).equals(listHistories.get(i))){
-                            em.merge(listHistories.get(i).getBook());
-                            em.merge(listHistories.get(i));
-//                        }
-                    }else{
-                        em.persist(listHistories.get(i));  
-                        em.merge(listHistories.get(i).getBook());
+        for(History delHistory : listHistories){
+            int flag = 0;
+            for(int i=0;i<listHistories.size();i++){
+                if(delHistory.getReader().equals(listHistories.get(i).getReader())){
+                    if(delHistory.getBook().getId() == listHistories.get(i).getBook().getId()){
+                        flag++;
                     }
-                tx.commit();
+                    if(flag >1){
+                        listHistories.get(i).getBook().setCount(listHistories.get(i).getBook().getCount()+1);
+                        listHistories.remove(listHistories.get(i));
+                        System.out.println("Эту книгу читатель уже читал");
+                        break;
+                    }
+                }
             }
-        
+            if(flag > 1) break;
+        }
+        List<History> listHistoriesSaved = loadHistories();
+        History newHistory = null;
+        History editHistory = null;
+        History returnHistory = null;
+        int i = 0;
+        for(History h : listHistories){
+            if(!listHistoriesSaved.contains(h) && h.getId() == null){
+                newHistory = h;
+                break;
+            }
+            if(listHistoriesSaved.contains(h) && !listHistoriesSaved.get(i).equals(h)){
+                editHistory = h;
+                break;
+            }
+            if(listHistoriesSaved.get(i).getId() == h.getId()
+                    && listHistoriesSaved.get(i).getReturnDate() == null && h.getReturnDate()!=null){
+                returnHistory = h;
+                break;
+            }
+            i++;
+        }
+        if(newHistory != null){
+            tx.begin();
+            em.persist(newHistory);
+            em.flush();
+            em.merge(newHistory.getBook());
+            tx.commit();
+        }
+        if(editHistory != null){
+            tx.begin();
+            em.merge(editHistory);
+            em.merge(editHistory.getBook());
+            tx.commit();
+        }
+        if(returnHistory != null){
+            tx.begin();
+            em.merge(returnHistory);
+            em.flush();
+            em.merge(returnHistory.getBook());
+            tx.commit();
+        }
     }
     List<History> loadHistories() {
         return em.createQuery("SELECT h FROM History h")
                 .getResultList();
     }
 }
-
